@@ -1,0 +1,26 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true
+    },
+    "extends": ["react-app", "prettier"],
+    "plugins": ["react", "prettier"],
+    "rules": {
+        "prettier/prettier": ["off"],
+        "max-len": ["error", { "code": 100 }],
+        "prefer-promise-reject-errors": ["off"],
+        "react/jsx-filename-extension": ["off"],
+        "react/prop-types": ["off"],
+        "no-return-assign": ["off"],
+        "react/jsx-indent": ["off"],
+        "react/jsx-indent-props": ["off"],
+        "react/jsx-one-expression-per-line": ["off"]
+    },
+    "parserOptions": {
+        "ecmaFeatures": {
+            "jsx": true
+        },
+        "ecmaVersion": 12,
+        "sourceType": "module"
+    }
+}
