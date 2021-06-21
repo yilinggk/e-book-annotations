@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Trie } from './Trie.js'
 
 const Container = styled.div`
     display: flex;
@@ -40,8 +41,48 @@ export class Home extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            value: '',
+            values: [
+                {
+                    pinyin: '',
+                    cchar: ''
+                }
+            ],
         };
+        let data = require('./data/data.json');
+        console.log(data)
+
+
+        this.trie = new Trie();
+        this.dict = {};
+        //todo: 多音字。
+
+        data.forEach(entry => {
+            this.trie.insert(entry["simplified"])
+            this.dict[entry["simplified"]] = entry["pinyin"];
+        });
+        
+        this.vowels = require('./data/vowels.json');
+    }
+
+    parsePinyin(pinyin) {
+        console.log(pinyin)
+        if(pinyin == undefined || pinyin == ""){
+            return ""
+        }
+
+        let accent = pinyin[pinyin.length - 1];
+        var word = pinyin.substr(0, pinyin.length - 1);
+        for (var i = 0; i < pinyin.length; i++) {
+            let char = pinyin[i].toLowerCase()
+            if(char == "u" && pinyin[i+1] == ":"){
+                char = 'u:'
+            }
+
+            if(this.vowels[char]){
+                return word.replace(char, this.vowels[char][accent])
+            }
+        }
+        return word
     }
 
     handleChange = (e) => {
@@ -57,30 +98,38 @@ export class Home extends React.Component {
             }
         }
 
-        if (allChinese === true) {
-            this.setState(
-                {
-                    value: e.target.value,
-                },
-                () => {
-                    console.log(this.state.value);
-                },
-            );
-        }
+        // this.parsePinyin("san1")
+
+        // if (allChinese === true) {
+        this.setState(
+            {
+                values:
+                    e.target.value.split('').map(x => {
+                        return {
+                            pinyin: this.parsePinyin(this.dict[x]), //todo: search the trie, rather than just dict.
+                            cchar: x
+                        }
+                    })
+            },
+            () => {
+                console.log(this.state.values);
+            },
+        );
+        // }
     };
 
     render() {
-        const { value } = this.state;
-
+        const { values } = this.state;
         return (
             <Container>
                 <Input type="text" onChange={this.handleChange} />
                 <Display>
-                    {value.split('').map((item, index) => {
+                    {values.map((item, index) => {
+                        // console.log(item);
                         return (
                             <LetterContainer key={index}>
-                                <Annotation>hi</Annotation>
-                                <Text>{item}</Text>
+                                <Annotation>{item.pinyin}</Annotation>
+                                <Text>{item.cchar}</Text>
                             </LetterContainer>
                         );
                     })}
