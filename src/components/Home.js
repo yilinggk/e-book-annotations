@@ -37,6 +37,8 @@ const LetterContainer = styled.div`
     margin: 5px;
 `;
 
+const NBSP = '\u00a0'
+
 export class Home extends React.Component {
     constructor(props) {
         super(props);
@@ -60,13 +62,13 @@ export class Home extends React.Component {
             this.trie.insert(entry["simplified"])
             this.dict[entry["simplified"]] = entry["pinyin"];
         });
-        
+
         this.vowels = require('./data/vowels.json');
     }
 
     parsePinyin(pinyin) {
         console.log(pinyin)
-        if(pinyin == undefined || pinyin == ""){
+        if (pinyin == undefined || pinyin == "") {
             return ""
         }
 
@@ -74,15 +76,32 @@ export class Home extends React.Component {
         var word = pinyin.substr(0, pinyin.length - 1);
         for (var i = 0; i < pinyin.length; i++) {
             let char = pinyin[i].toLowerCase()
-            if(char == "u" && pinyin[i+1] == ":"){
+            if (char == "u" && pinyin[i + 1] == ":") {
                 char = 'u:'
             }
 
-            if(this.vowels[char]){
+            if (this.vowels[char]) {
                 return word.replace(char, this.vowels[char][accent])
             }
         }
         return word
+    }
+
+    isChinese(str) {
+        // Randomly taken from https://flyingsky.github.io/2018/01/26/javascript-detect-chinese-japanese/
+        var REGEX_CHINESE = new RegExp(
+            ['[\\u4e00-\\u9fff]',
+            '|[\\u3400-\\u4dbf]',
+            '|[\\u{20000}-\\u{2a6df}]',
+            '|[\\u{2a700}-\\u{2b73f}]',
+            '|[\\u{2b740}-\\u{2b81f}]',
+            '|[\\u{2b820}-\\u{2ceaf}]',
+            '|[\\uf900-\\ufaff]',
+            '|[\\u3300-\\u33ff]',
+            '|[\\ufe30-\\ufe4f]',
+            '|[\\uf900-\\ufaff]',
+            '|[\\u{2f800}-\\u{2fa1f}]'].join(''), 'u');
+        return REGEX_CHINESE.test(str);
     }
 
     handleChange = (e) => {
@@ -101,15 +120,46 @@ export class Home extends React.Component {
         // this.parsePinyin("san1")
 
         // if (allChinese === true) {
+        var lst = [];
+        var curWord = "";
+        e.target.value.split('').forEach(char => {
+            if (this.isChinese(char)) {
+                if (curWord != "") {
+                    lst.push({
+                        pinyin: NBSP,
+                        cchar: curWord
+                    })
+                    curWord = "";
+                }
+                lst.push({
+                    //todo: search the trie, rather than just dict.
+                    pinyin: this.parsePinyin(this.dict[char]),
+                    cchar: char
+                })
+            } else {
+                curWord += char;
+            }
+        })
+        if (curWord != "") {
+            lst.push({
+                pinyin: NBSP,
+                cchar: curWord
+            })
+            curWord = "";
+        }
+
         this.setState(
             {
-                values:
-                    e.target.value.split('').map(x => {
-                        return {
-                            pinyin: this.parsePinyin(this.dict[x]), //todo: search the trie, rather than just dict.
-                            cchar: x
-                        }
-                    })
+                values: lst
+                // e.target.value.split('').map(x => {
+                //     if(this.isChinese(x)){
+                //         return {
+                //             //todo: search the trie, rather than just dict.
+                //             pinyin: this.parsePinyin(this.dict[x]), 
+                //             cchar: x
+                //         }
+                //     }
+                // })
             },
             () => {
                 console.log(this.state.values);
