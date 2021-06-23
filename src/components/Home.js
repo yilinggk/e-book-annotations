@@ -53,10 +53,16 @@ export class Home extends React.Component {
         let data = require('./data/data.json');
         console.log(data)
 
-
         this.trie = new Trie();
         this.dict = {};
-        //todo: 多音字。
+        //todo: 多音字. currently, dict just gets overwritten, so 
+        // i think it's currently the most unpopular 多音字.
+        // maybe make a queue? add to the end, and when we fetch,
+        // we want the first (hopefully most common).
+        //  TODO: possible new feature? have user correct it? 
+        //      with our current infrastructure, we can add 
+        //      surrounding words into the dict, and it can remember
+        //      that way?
 
         data.forEach(entry => {
             this.trie.insert(entry["simplified"])
@@ -66,6 +72,12 @@ export class Home extends React.Component {
         this.vowels = require('./data/vowels.json');
     }
 
+    /**
+     * Parses pinyin from ascii to utf-8
+     *  i.e. from 'san1' into 'sān'
+     * @param {*} pinyin in ascii
+     * @returns the proper pinyin, ready to display
+     */
     parsePinyin(pinyin) {
         // console.log(pinyin)
         if (pinyin == undefined || pinyin == "") {
@@ -74,8 +86,16 @@ export class Home extends React.Component {
 
         let accent = pinyin[pinyin.length - 1];
         var word = pinyin.substr(0, pinyin.length - 1);
+
+        // TODO: accent priority should be in the order aoeiuü
+        // Note: in the case of 'iu' or 'ui', accent goes onto the terminal
+        //      Ex. liú or guǐ
+        // source: http://www.ichineselearning.com/learn/pinyin-tones.html
+        
+        //replaces first vowel encountered.
         for (var i = 0; i < pinyin.length; i++) {
             let char = pinyin[i].toLowerCase()
+            // ü is written as u: in ascii
             if (char == "u" && pinyin[i + 1] == ":") {
                 char = 'u:'
             }
@@ -109,11 +129,15 @@ export class Home extends React.Component {
         let text = e.target.value;
         console.log("===============================")
         console.log(text)
+
+        // Fragments? Verses?
+        // replace all '.'
         var fragments = text.split('。');
         for(var i = 0; i < fragments.length - 1; i++){
             fragments[i] += '。'
         }
 
+        //replace all ','
         for(var i = 0; i < fragments.length; i++){
             var fragment2 = fragments[i].split(',');
             for(var j = 0; j < fragment2.length -1; j++) {
@@ -122,18 +146,6 @@ export class Home extends React.Component {
         }
         fragments = fragments.flat();
 
-        // let allChinese = true;
-
-        // for (let i = 0; i < chars.length; i += 1) {
-        //     if (chars[i].toLowerCase() !== chars[i].toUpperCase()) {
-        //         allChinese = false;
-        //         break;
-        //     }
-        // }
-
-        // this.parsePinyin("san1")
-
-        // if (allChinese === true) {
         var lst = [];
         for (let fragment of fragments) {
             var partial = fragment
