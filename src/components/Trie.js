@@ -122,8 +122,7 @@ Trie.prototype.findBest = function (word) {
             // if it exists, proceed to the next depth of the trie.
             node = node.children[word[i]];
         } else {
-            // doesn't exist, return false since it's not a valid word.
-            node = node.parent;
+            // node = node.parent;
 
             // //back track until the first valid 'word'
             // while(node !== null && !node.end){
