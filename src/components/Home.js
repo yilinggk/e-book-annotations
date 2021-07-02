@@ -2,6 +2,7 @@ import React from 'react';
 import { List } from 'semantic-ui-react';
 import styled from 'styled-components';
 import { Trie } from './Trie.js'
+import { DictionaryStore } from './DictionaryStore.js'
 
 const Container = styled.div`
     display: flex;
@@ -40,59 +41,14 @@ const LetterContainer = styled.div`
 
 const NBSP = '\u00a0'
 
-class DictionaryStore {
-    data = {};
-    constructor() { }
-
-    add(key, value) {
-        if (!this.data[key]) {
-            this.data[key] = []
-        }
-        this.data[key].push(value)
-    }
-
-    get(key) {
-        console.log(this.data[key])
-        return this.data[key][0]
-    }
-
-    contains(key, value) {
-        if (this.data[key]) {
-            for (let c of this.data[key]) {
-                console.log("comparing " + c + " and " + value)
-                if (value === c) {
-                    return true;
-                }
-            }
-        }
-        return false
-    }
-
-    //returns a boolean indicating whether or not the entire key is gone
-    remove(key, value) {
-        if (this.data[key]) {
-            this.data[key] = this.data[key].filter(function (v, index, arr) {
-                return value != v
-            });
-
-            if (this.data[key].length == 0) {
-                delete this.data[key]
-                return true;
-            }
-        }
-        return false
-    }
-
-};
-
 export class Home extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
             values: [
                 {
-                    pinyin: '',
-                    cchar: ''
+                    pinyin: NBSP,
+                    cchar: NBSP
                 }
             ],
         };
@@ -304,7 +260,6 @@ export class Home extends React.Component {
                             cchar: phrase[i]
                         })
                     }
-
                 }
             }
         }
