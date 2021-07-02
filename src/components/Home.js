@@ -1,4 +1,5 @@
 import React from 'react';
+import { List } from 'semantic-ui-react';
 import styled from 'styled-components';
 import { Trie } from './Trie.js'
 
@@ -95,7 +96,7 @@ export class Home extends React.Component {
                 }
             ],
         };
-        
+
         let data = require('./data/data.json');
         let custom = require('./data/custom.json');
         let skip = require('./data/skip.json');
@@ -106,11 +107,11 @@ export class Home extends React.Component {
         this.trie = new Trie();
         // priority of data dict is FILO
         this.dict = new DictionaryStore();
-        
+
         // Note: 多音字. currently, dict maps simplified -> list of pinyins.
         // When fetching, we simply take the first element in list.
         // (which is hopefully the most common)
-        
+
         // To prioritize something, currently just add it to custom.
         // TODO: think of a better way to handle this?
         // TODO: possible new feature? have user correct it? 
@@ -136,8 +137,8 @@ export class Home extends React.Component {
             let pinyin = entry["pinyin"]
             this.trie.insert(simplified)
             if (this.dict.contains(simplified, pinyin)) {
-                //If completely removed from dict, remove from trie
                 if (this.dict.remove(simplified, pinyin)) {
+                    //If completely removed from dict, remove from trie
                     this.trie.remove(simplified);
                 }
             } else {
@@ -155,7 +156,6 @@ export class Home extends React.Component {
      * @returns the proper pinyin, ready to display
      */
     parsePinyin(pinyin) {
-        // console.log(pinyin)
         if (pinyin == undefined || pinyin == "") {
             return ""
         }
@@ -168,7 +168,8 @@ export class Home extends React.Component {
         let accent = pinyin[pinyin.length - 1];
         var word = pinyin.substr(0, pinyin.length - 1);
 
-        if (accent == "5") { // 5 should be 轻声
+        // 5 should be 轻声, so no changes needed
+        if (accent == "5") {
             return word;
         }
 
@@ -202,22 +203,12 @@ export class Home extends React.Component {
         if (this.vowels[char]) {
             return word.replace(char, this.vowels[char][accent])
         }
-        // for (var i = 0; i < word.length; i++) {
-        //     let char = word[i].toLowerCase()
-        //     // ü is written as u: in ascii
-        //     if (char == "u" && word[i + 1] == ":") {
-        //         char = 'u:'
-        //     }
 
-        //     if (this.vowels[char]) {
-        //         return word.replace(char, this.vowels[char][accent])
-        //     }
-        // }
         return word
     }
 
     isChinese(str) {
-        // Randomly taken from; 
+        // Randomly taken from:
         // https://flyingsky.github.io/2018/01/26/javascript-detect-chinese-japanese/
         var REGEX_CHINESE = new RegExp(
             ['[\\u4e00-\\u9fff]',
@@ -234,27 +225,34 @@ export class Home extends React.Component {
         return REGEX_CHINESE.test(str);
     }
 
+
+    split(lines, char) {
+        var list = [];
+        for (var line of lines) {
+            var verses = line.split(char)
+            for (var i = 0; i < verses.length - 1; i++) {
+                verses[i] += char
+            }
+            list.push(verses);
+        }
+
+        return list.flat()
+    }
+
+
     handleChange = (e) => {
         let text = e.target.value;
         console.log("===============================")
         console.log(text)
 
-        //TODO: make splitting into verses better...
-        // Fragments? Verses?
-        // replace all '.'
-        var fragments = text.split('。');
-        for (var i = 0; i < fragments.length - 1; i++) {
-            fragments[i] += '。'
-        }
- 
-        //replace all ','
-        for (var i = 0; i < fragments.length; i++) {
-            var fragment2 = fragments[i].split(',');
-            for (var j = 0; j < fragment2.length - 1; j++) {
-                fragment2[j] = ','
-            }
-        }
-        fragments = fragments.flat();
+        var fragments = [text]
+        fragments = this.split(fragments, '。')
+        fragments = this.split(fragments, ',')
+        fragments = this.split(fragments, '、')
+        fragments = this.split(fragments, '“')
+        fragments = this.split(fragments, '”')
+
+        console.log(fragments);
 
         var lst = [];
         for (let fragment of fragments) {
@@ -311,53 +309,14 @@ export class Home extends React.Component {
             }
         }
 
-        // var lst = [];
-        // var curWord = "";
-        // e.target.value.split('').forEach(char => {
-        //     console.log(char)
-        //     if (this.isChinese(char)) {
-        //         if (curWord != "") {
-        //             lst.push({
-        //                 pinyin: NBSP,
-        //                 cchar: curWord
-        //             })
-        //             curWord = "";
-        //         }
-        //         lst.push({
-        //             //todo: search the trie, rather than just dict.
-        //             pinyin: this.parsePinyin(this.dict[char]),
-        //             cchar: char
-        //         })
-        //     } else {
-        //         curWord += char;
-        //     }
-        // })
-        // if (curWord != "") {
-        //     lst.push({
-        //         pinyin: NBSP,
-        //         cchar: curWord
-        //     })
-        //     curWord = "";
-        // }
-
         this.setState(
             {
                 values: lst
-                // e.target.value.split('').map(x => {
-                //     if(this.isChinese(x)){
-                //         return {
-                //             //todo: search the trie, rather than just dict.
-                //             pinyin: this.parsePinyin(this.dict[x]), 
-                //             cchar: x
-                //         }
-                //     }
-                // })
             },
             () => {
                 console.log(this.state.values);
             },
         );
-        // }
     };
 
     render() {
@@ -367,7 +326,6 @@ export class Home extends React.Component {
                 <Input type="text" onChange={this.handleChange} />
                 <Display>
                     {values.map((item, index) => {
-                        // console.log(item);
                         return (
                             <LetterContainer key={index}>
                                 <Annotation>{item.pinyin}</Annotation>
