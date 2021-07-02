@@ -1,5 +1,8 @@
 import React from 'react';
+import { List } from 'semantic-ui-react';
 import styled from 'styled-components';
+import { Trie } from './Trie.js'
+import { DictionaryStore } from './DictionaryStore.js'
 
 const Container = styled.div`
     display: flex;
@@ -36,51 +39,252 @@ const LetterContainer = styled.div`
     margin: 5px;
 `;
 
+const NBSP = '\u00a0'
+
 export class Home extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            value: '',
+            values: [
+                {
+                    pinyin: NBSP,
+                    cchar: NBSP
+                }
+            ],
         };
+
+        let data = require('./data/data.json');
+        let custom = require('./data/custom.json');
+        let skip = require('./data/skip.json');
+        console.log(data)
+        console.log(custom)
+        console.log(skip)
+
+        this.trie = new Trie();
+        // priority of data dict is FILO
+        this.dict = new DictionaryStore();
+
+        // Note: 多音字. currently, dict maps simplified -> list of pinyins.
+        // When fetching, we simply take the first element in list.
+        // (which is hopefully the most common)
+
+        // To prioritize something, currently just add it to custom.
+        // TODO: think of a better way to handle this?
+        // TODO: possible new feature? have user correct it? 
+        //      with our current infrastructure, we can add 
+        //      surrounding words into the custom automatically,
+        //      and it can remember that way?
+
+        //add custom first
+        custom.forEach(entry => {
+            let simplified = entry["simplified"]
+            this.trie.insert(simplified)
+            this.dict.add(simplified, entry["pinyin"]);
+        });
+
+        data.forEach(entry => {
+            let simplified = entry["simplified"]
+            this.trie.insert(simplified)
+            this.dict.add(simplified, entry["pinyin"]);
+        });
+
+        skip.forEach(entry => {
+            let simplified = entry["simplified"]
+            let pinyin = entry["pinyin"]
+            this.trie.insert(simplified)
+            if (this.dict.contains(simplified, pinyin)) {
+                if (this.dict.remove(simplified, pinyin)) {
+                    //If completely removed from dict, remove from trie
+                    this.trie.remove(simplified);
+                }
+            } else {
+                console.error("Unrecognized skip");
+            }
+        });
+
+        this.vowels = require('./data/vowels.json');
     }
 
+    /**
+     * Parses pinyin from ascii to utf-8
+     *  i.e. from 'san1' into 'sān'
+     * @param {*} pinyin in ascii
+     * @returns the proper pinyin, ready to display
+     */
+    parsePinyin(pinyin) {
+        if (pinyin == undefined || pinyin == "") {
+            return ""
+        }
+
+        //special case with no vowel
+        if (pinyin == "r5") {
+            return "r";
+        }
+
+        let accent = pinyin[pinyin.length - 1];
+        var word = pinyin.substr(0, pinyin.length - 1);
+
+        // 5 should be 轻声, so no changes needed
+        if (accent == "5") {
+            return word;
+        }
+
+        // Note: accent priority should be in the order aoeiuü
+        // Note: in the case of 'iu' or 'ui', accent goes onto the terminal
+        //      Ex. liú or guǐ
+        // source: http://www.ichineselearning.com/learn/pinyin-tones.html
+
+        var char = "";
+        if (word.includes("a")) {
+            char = "a"
+        } else if (word.includes("o")) {
+            char = "o"
+        } else if (word.includes("e")) {
+            char = "e"
+        } else if (word.includes("iu")) {
+            char = "u"
+        } else if (word.includes("ui")) {
+            char = "i"
+        } else if (word.includes("i")) {
+            char = "i"
+        } else if (word.includes("u:")) {
+            // confirmed by hand that u and u: don't appear in the same word
+            char = "u:"
+        } else if (word.includes("u")) {
+            char = "u"
+        } else {
+            console.error("found pinyin with no vowel: " + pinyin);
+        }
+
+        if (this.vowels[char]) {
+            return word.replace(char, this.vowels[char][accent])
+        }
+
+        return word
+    }
+
+    isChinese(str) {
+        // Randomly taken from:
+        // https://flyingsky.github.io/2018/01/26/javascript-detect-chinese-japanese/
+        var REGEX_CHINESE = new RegExp(
+            ['[\\u4e00-\\u9fff]',
+                '|[\\u3400-\\u4dbf]',
+                '|[\\u{20000}-\\u{2a6df}]',
+                '|[\\u{2a700}-\\u{2b73f}]',
+                '|[\\u{2b740}-\\u{2b81f}]',
+                '|[\\u{2b820}-\\u{2ceaf}]',
+                '|[\\uf900-\\ufaff]',
+                '|[\\u3300-\\u33ff]',
+                '|[\\ufe30-\\ufe4f]',
+                '|[\\uf900-\\ufaff]',
+                '|[\\u{2f800}-\\u{2fa1f}]'].join(''), 'u');
+        return REGEX_CHINESE.test(str);
+    }
+
+
+    split(lines, char) {
+        var list = [];
+        for (var line of lines) {
+            var verses = line.split(char)
+            for (var i = 0; i < verses.length - 1; i++) {
+                verses[i] += char
+            }
+            list.push(verses);
+        }
+
+        return list.flat()
+    }
+
+
     handleChange = (e) => {
-        let phrase = e.target.value;
-        let chars = phrase.split('');
+        let text = e.target.value;
+        console.log("===============================")
+        console.log(text)
 
-        let allChinese = true;
+        var fragments = [text]
+        fragments = this.split(fragments, '。')
+        fragments = this.split(fragments, ',')
+        fragments = this.split(fragments, '、')
+        fragments = this.split(fragments, '“')
+        fragments = this.split(fragments, '”')
 
-        for (let i = 0; i < chars.length; i += 1) {
-            if (chars[i].toLowerCase() !== chars[i].toUpperCase()) {
-                allChinese = false;
-                break;
+        console.log(fragments);
+
+        var lst = [];
+        for (let fragment of fragments) {
+            var partial = fragment
+            while (partial != "") {
+                var index = 0;
+                while (partial[index] != undefined && !this.isChinese(partial[index])) {
+                    index += 1;
+                } //get rid of all non-chinese char from beginning partial
+                console.log("++++++++++++++++++++++++");
+                console.log("partialStart: " + partial);
+                console.log("index Of first chinese: " + index);
+                if (partial.substr(0, index) != "") {
+                    console.log("pushing:" + partial.substr(0, index))
+                    lst.push({
+                        pinyin: NBSP,
+                        cchar: partial.substr(0, index)
+                    })
+                }
+                //remove chars from partial
+                partial = partial.substr(index, partial.length);
+                console.log("partialAfterRemoval: " + partial);
+
+                if (partial == "") {
+                    continue; // no more chinese chars in fragment, next pls
+                }
+
+                //findBest is simply greedy algo, find the longest
+                var phrase = this.trie.findBest(partial)
+                console.log("phrase: " + phrase);
+                if (phrase == "") {
+                    console.error("Unable to find best phrase from '" + partial + "'.");
+                    return; //tentatively return cause error
+                } else {
+                    //found something in trie, remove from partial
+                    partial = partial.substr(phrase.length, partial.length);
+                    let pinyin = this.dict.get(phrase).split(" ");
+                    if (phrase.length != pinyin.length) {
+                        console.error("pinyin and phrase have different lengths O.o")
+                        console.error("phrase: " + phrase)
+                        console.error("pinyin: " + pinyin)
+                        return; //tentatively return cause error
+                    }
+
+                    // push all phrases
+                    for (var i = 0; i < phrase.length; i++) {
+                        lst.push({
+                            pinyin: this.parsePinyin(pinyin[i]),
+                            cchar: phrase[i]
+                        })
+                    }
+                }
             }
         }
 
-        if (allChinese === true) {
-            this.setState(
-                {
-                    value: e.target.value,
-                },
-                () => {
-                    console.log(this.state.value);
-                },
-            );
-        }
+        this.setState(
+            {
+                values: lst
+            },
+            () => {
+                console.log(this.state.values);
+            },
+        );
     };
 
     render() {
-        const { value } = this.state;
-
+        const { values } = this.state;
         return (
             <Container>
                 <Input type="text" onChange={this.handleChange} />
                 <Display>
-                    {value.split('').map((item, index) => {
+                    {values.map((item, index) => {
                         return (
                             <LetterContainer key={index}>
-                                <Annotation>hi</Annotation>
-                                <Text>{item}</Text>
+                                <Annotation>{item.pinyin}</Annotation>
+                                <Text>{item.cchar}</Text>
                             </LetterContainer>
                         );
                     })}
